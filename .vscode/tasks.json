@@ -1,0 +1,43 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "watch",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: watch",
+			"detail": "npm run watch:init && npm run watch:all"
+		},
+		{
+			"type": "npm",
+			"script": "watch:local",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "npm: watch:local",
+			"detail": "node build/watch.js"
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "tsconfig.json",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build",
+			"label": "tsc: build - tsconfig.json"
+		},
+		{
+			"type": "typescript",
+			"tsconfig": "tsconfig.json",
+			"option": "watch",
+			"problemMatcher": [
+				"$tsc-watch"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"label": "tsc: watch - tsconfig.json"
+		}
+	]
+}
