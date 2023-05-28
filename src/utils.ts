@@ -68,7 +68,7 @@ export class Server {
 
     //Target-related properties
     get canHack() {
-        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name)
+        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name) && this.isRooted
     }
 
     get minSecurity() {
@@ -85,6 +85,18 @@ export class Server {
 
     get money() {
         return this.ns.getServerMoneyAvailable(this.name)
+    }
+
+    get hackTime() {
+        return this.ns.getHackTime(this.name)
+    }
+
+    get growTime() {
+        return this.ns.getGrowTime(this.name)
+    }
+
+    get weakenTime() {
+        return this.ns.getWeakenTime(this.name)
     }
 
 
