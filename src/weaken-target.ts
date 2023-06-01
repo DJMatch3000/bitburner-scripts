@@ -7,7 +7,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     let target: string = ns.args[0].toString()
-    if (ns.args.length > 1 && typeof ns.args[1] === "number") {
+    if (ns.args.length > 1 && typeof ns.args[1] === "number" && ns.args[1] > 0) {
         await ns.sleep(ns.args[1])
     }
     await ns.weaken(target)
