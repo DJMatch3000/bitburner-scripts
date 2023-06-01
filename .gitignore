@@ -1,3 +1,4 @@
 node_modules/
 dist/
+prev_version/
 NetscriptDefinitions.d.ts
