@@ -63,7 +63,7 @@ export class Server {
 
     get availableRAM() {
         if (this.name === "home") {
-            return Math.floor((this.maxRAM - this.usedRAM) * 0.8)
+            return Math.floor((this.maxRAM - this.usedRAM) * 0.8 * 100) / 100
         }
         return this.maxRAM - this.usedRAM
     }
