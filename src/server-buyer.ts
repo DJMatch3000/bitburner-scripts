@@ -2,7 +2,7 @@ import { NS } from "@ns";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL')
-    const HOSTNAME = "daemonhost"
+    const HOSTNAME = "daemonhost-"
 
     for (let i = ns.getPurchasedServers().length; i < ns.getPurchasedServerLimit(); i++) {
         let serverRam = ns.getServerMaxRam("home")
