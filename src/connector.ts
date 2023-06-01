@@ -23,7 +23,7 @@ export async function main(ns: NS): Promise<void> {
      */
 }
 
-function findPath(ns: NS, curServer: string, target: string, path: string[], scanned: string[]) {
+function findPath (ns: NS, curServer: string, target: string, path: string[], scanned: string[]): any {
     let servs = ns.scan(curServer)
     for (let s of servs) {
         if (s === target) {

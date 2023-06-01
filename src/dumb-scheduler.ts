@@ -15,7 +15,7 @@ async function scheduler(ns: NS) {
     const WEAKEN_RAM = ns.getScriptRam("weaken-target.js") // 1.75GB
 
     // Get list of hosts and available RAM
-    let hosts = getAllServers(ns).filter((s) => s.canRoot || s.name === "home")
+    let hosts = getAllServers(ns).filter((s) => s.canRoot || s.isRooted)
     let totalRAM = 0
     for (let h of hosts) {
         if(h.name != "home" && !h.isRooted) {
