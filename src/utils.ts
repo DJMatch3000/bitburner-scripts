@@ -62,13 +62,16 @@ export class Server {
     }
 
     get availableRAM() {
+        if (this.name === "home") {
+            return Math.floor((this.maxRAM - this.usedRAM) * 0.8)
+        }
         return this.maxRAM - this.usedRAM
     }
 
 
     //Target-related properties
     get canHack() {
-        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name) && this.isRooted
+        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name) && this.canRoot
     }
 
     get minSecurity() {

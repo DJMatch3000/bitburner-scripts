@@ -40,9 +40,6 @@ async function scheduler(ns: NS) {
         ns.print(`Weakening ${target.name}`)
         for (let h of hosts) {
             let numThreads = Math.floor(h.availableRAM / WEAKEN_RAM)
-            if (h.name === "home") {
-                numThreads = Math.floor(numThreads * 0.8)
-            }
             if (numThreads > 0) {
                 ns.exec("weaken-target.js", h.name, numThreads, target.name)
             }
@@ -54,9 +51,6 @@ async function scheduler(ns: NS) {
         ns.print(`Growing ${target.name}`)
         for (let h of hosts) {
             let numThreads = Math.floor(h.availableRAM / GROW_RAM)
-            if (h.name === "home") {
-                numThreads = Math.floor(numThreads * 0.8)
-            }
             if (numThreads > 0) {
                 ns.exec("grow-target.js", h.name, numThreads, target.name)
             }
@@ -68,9 +62,6 @@ async function scheduler(ns: NS) {
         ns.print(`Hacking ${target.name}`)
         for (let h of hosts) {
             let numThreads = Math.floor(h.availableRAM / HACK_RAM)
-            if (h.name === "home") {
-                numThreads = Math.floor(numThreads * 0.8)
-            }
             if (numThreads > 0) {
                 ns.exec("hack-target.js", h.name, numThreads, target.name)
             }
@@ -94,6 +85,9 @@ function getTarget(ns: NS, curTarget: Server | undefined): Server {
         if (s.canHack && s.maxMoney > newTarget.maxMoney) {
             newTarget = s
         }
+    }
+    if (!newTarget.isRooted) {
+        newTarget.root()
     }
     return newTarget
 }
