@@ -18,13 +18,15 @@ export async function main(ns: NS): Promise<void> {
         let servers = getAllServers(ns)
         let hosts = servers.filter((s) => s.isRooted)
         let targets = servers.filter((s) => s.canHack)
+        // ns.tprint(targets.length)
         hosts.sort((a, b) => b.availableRAM - a.availableRAM)
         hosts.map((s) => {if (!ns.fileExists('weaken-target.js', s.name)) ns.scp(["hack-target.js", "grow-target.js", "weaken-target.js"], s.name, "home")})
         targets.sort((a, b) => b.maxMoney - a.maxMoney)
+        // ns.tprint(targets[0].name)
 
         await prepServer(ns, targets[0], hosts)
         let batchTime = await scheduleBatch(ns, targets[0], hosts)
-        await ns.sleep(batchTime + 400)
+        await ns.sleep(batchTime + 400) 
     }
     
 }
@@ -38,6 +40,7 @@ export async function main(ns: NS): Promise<void> {
  */
 async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     ns.print("Prepping " + target.name)
+    if (!target.isRooted) target.root()
     let scriptMem = ns.getScriptRam('weaken-target.js')
     let weakenNeeded = target.security - target.minSecurity
     let weakenThreadsNeeded = 0
