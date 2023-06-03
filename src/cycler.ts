@@ -14,7 +14,8 @@ export async function main(ns: NS): Promise<void> {
     // run all of the above
     ns.disableLog('ALL')
     ns.enableLog('sleep')
-    while (true) {
+    let loop = true
+    while (loop) {
         let servers = getAllServers(ns)
         let hosts = servers.filter((s) => s.isRooted)
         let targets = servers.filter((s) => s.canHack)
@@ -25,6 +26,7 @@ export async function main(ns: NS): Promise<void> {
         // ns.tprint(targets[0].name)
 
         await prepServer(ns, targets[0], hosts)
+        // loop = false
         let batchTime = await scheduleBatch(ns, targets[0], hosts)
         await ns.sleep(batchTime + 400) 
     }
@@ -79,11 +81,11 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
         }
         await ns.sleep(200)
     }
-    if (shouldSleep) await ns.sleep(target.weakenTime + 400)
+    if (shouldSleep) await ns.sleep(400)
 
     // Grow the target to maximum money
     let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / scriptMem)), 0)
-    let growSleepTime = (target.weakenTime - target.growTime) + 400
+    let growSleepTime = target.weakenTime - target.growTime - 400
     let weakenSleepTime = target.growTime - target.weakenTime
     ns.print('Beginning grow prep')
     if (growThreadsNeeded <= 0) {
@@ -105,6 +107,10 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                     break
                 }
             }
+            if (growThreadsNeeded > 0) {
+                ns.print("ERROR: miscalculated threads available")
+                await ns.sleep(200)
+            }
         }
         while (weakenThreadsNeededAfterGrow > 0) {
             for (let host of hosts) {
@@ -117,6 +123,10 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                 if (weakenThreadsNeededAfterGrow <= 0) {
                     break
                 }
+            }
+            if (growThreadsNeeded > 0) {
+                ns.print("ERROR: miscalculated threads available")
+                await ns.sleep(200)
             }
         }
         await ns.sleep(Math.max(target.growTime, target.weakenTime) + 400)
@@ -165,7 +175,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Scheduling batch on ${target.name}`)
     let hackThreads = Math.floor(0.75 / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
-    let growThreadsAfterHack = 10000 // Manually calculated, can be updated with Formulas api
+    let growThreadsAfterHack = 3000 // Manually calculated, can be updated with Formulas api
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
     let firstWeakenDelay = 0
     let hackDelay = target.weakenTime - target.hackTime - 1000 + firstWeakenDelay
@@ -204,6 +214,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     }
     while (growThreadsAfterHack > 0) {
         for (let host of hosts) {
+            ns.print(`${growThreadsAfterHack} threads remaining`)
             let threads = Math.min(Math.floor(host.availableRAM / 1.75), growThreadsAfterHack)
             if (threads <= 0) {
                 continue
@@ -214,6 +225,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
                 break
             }
         }
+        // await ns.sleep(200)
     }
     while (weakenThreadsAfterGrow > 0) {
         for (let host of hosts) {
@@ -223,7 +235,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
             }
             ns.exec("weaken-target.js", host.name, threads, target.name, secondWeakenDelay)
             weakenThreadsAfterGrow -= threads
-            if (growThreadsAfterHack <= 0) {
+            if (weakenThreadsAfterGrow <= 0) {
                 break
             }
         }
