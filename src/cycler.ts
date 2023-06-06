@@ -173,7 +173,8 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
 
 async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Scheduling batch on ${target.name}`)
-    let hackThreads = Math.floor(0.75 / ns.hackAnalyze(target.name))
+    let hackRatio = 0.75
+    let hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
     let growThreadsAfterHack = 3000 // Manually calculated, can be updated with Formulas api
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
@@ -181,6 +182,15 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     let hackDelay = target.weakenTime - target.hackTime - 1000 + firstWeakenDelay
     let growDelay = firstWeakenDelay + target.weakenTime - target.growTime + 1000
     let secondWeakenDelay = growDelay + target.growTime - target.weakenTime + 1000
+
+    let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
+    while (hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow > totalThreadsAvailable) {
+        hackRatio -= 0.01
+        hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
+        weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
+        growThreadsAfterHack *= 0.9
+        weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
+    }
     
     ns.print(`Hack: ${hackThreads} threads after ${Math.round(hackDelay / 10) / 100} seconds`)
     ns.print(`First Weaken: ${weakenThreadsAfterHack} threads after ${Math.round(firstWeakenDelay / 10) / 100} seconds`)
