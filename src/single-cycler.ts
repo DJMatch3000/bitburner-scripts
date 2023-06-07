@@ -3,21 +3,22 @@ import { getAllServers, Server, getMults } from "utils";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL')
+    ns.enableLog('sleep')
     let loop = true
     while (loop) {
         let servers = getAllServers(ns)
         let hosts = servers.filter((s) => s.isRooted)
         let targets = servers.filter((s) => s.canHack)
-        // ns.tprint("WARNING: Manually setting target")
-        // targets = [new Server(ns, "iron-gym")]
+        // ns.tprint(targets.length)
         hosts.sort((a, b) => b.availableRAM - a.availableRAM)
         hosts.map((s) => {if (!ns.fileExists('weaken-target.js', s.name)) ns.scp(["hack-target.js", "grow-target.js", "weaken-target.js"], s.name, "home")})
         targets.sort((a, b) => b.maxMoney - a.maxMoney)
+        // ns.tprint(targets[0].name)
 
         await prepServer(ns, targets[0], hosts)
         // loop = false
         let batchTime = await scheduleBatch(ns, targets[0], hosts)
-        await ns.sleep(batchTime + 1000) 
+        await ns.sleep(batchTime + 400) 
     }
     
 }
@@ -40,7 +41,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     }
     let growMultNeeded = target.maxMoney / target.money
     let growThreadsNeeded = Math.ceil(ns.growthAnalyze(target.name, growMultNeeded))
-    let weakenNeededAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsNeeded))
+    let weakenNeededAfterGrow = ns.growthAnalyzeSecurity(growThreadsNeeded)
     let weakenThreadsNeededAfterGrow = 0
     while (ns.weakenAnalyze(weakenThreadsNeededAfterGrow) < weakenNeededAfterGrow) {
         weakenThreadsNeededAfterGrow++
@@ -76,6 +77,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / scriptMem)), 0)
     let growSleepTime = target.weakenTime - target.growTime - 400
     let weakenSleepTime = target.growTime - target.weakenTime
+    ns.print(`${growThreadsNeeded + weakenNeededAfterGrow} of ${totalThreadsAvailable} threads needed for prep`)
     if (growThreadsNeeded <= 0) {}
     else if (totalThreadsAvailable >= growThreadsNeeded + weakenThreadsNeededAfterGrow) {
         ns.print('Running all at once')
@@ -158,9 +160,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
 
 async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Scheduling batch on ${target.name}`)
-    let targetBatches = 10
-    let scheduling = true
-    let hackRatio = 0.97
+    let hackRatio = 0.75
     let hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
     let growThreadsAfterHack = 3000 // Manually calculated, can be updated with Formulas api by uncommenting below code
@@ -169,108 +169,79 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     // tempTarget.moneyAvailable *= (1 - hackRatio)
     // growThreadsAfterHack = ns.formulas.hacking.growThreads(tempTarget, ns.getPlayer(), target.maxMoney)
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
-
-    while (scheduling && targetBatches > 0) {
-        hackRatio = 0.97
-        let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
-        let batchThreadsAvailable = Math.floor(totalThreadsAvailable / targetBatches)
-        while (hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow > batchThreadsAvailable && hackRatio > 0) {
-            hackRatio -= 0.01
-            hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
-            weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
-            growThreadsAfterHack = Math.ceil(growThreadsAfterHack * 0.95)
-            weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
-        }
-        if (hackRatio <= 0) {
-            targetBatches--
-        }
-        else {
-            scheduling = false
-        }
-    }
-
-    if (targetBatches <= 0) {
-        ns.print("ERROR: Failed to schedule even a single batch")
-        return 0
-    }
-
     let firstWeakenDelay = 0
     let hackDelay = target.weakenTime - target.hackTime - 1000 + firstWeakenDelay
     let growDelay = firstWeakenDelay + target.weakenTime - target.growTime + 1000
     let secondWeakenDelay = growDelay + target.growTime - target.weakenTime + 1000
-    let batchDelay = secondWeakenDelay + 1000
+
+    let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
+    ns.print(`Using ${hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow} of ${totalThreadsAvailable} threads to schedule batch`)
+    await ns.sleep(5000)
+    while (hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow > totalThreadsAvailable) {
+        hackRatio -= 0.01
+        hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
+        weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
+        growThreadsAfterHack = Math.ceil(growThreadsAfterHack * 0.9)
+        weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
+    }
     
-    // ns.print(`Hack: ${hackThreads} threads after ${Math.round(hackDelay / 10) / 100} seconds`)
-    // ns.print(`First Weaken: ${weakenThreadsAfterHack} threads after ${Math.round(firstWeakenDelay / 10) / 100} seconds`)
-    // ns.print(`Grow: ${growThreadsAfterHack} threads after ${Math.round(growDelay / 10) / 100} seconds`)
-    // ns.print(`Second Weaken: ${weakenThreadsAfterGrow} threads after ${Math.round(secondWeakenDelay / 10) / 100} seconds`)
-
-    ns.print(`Stealing $${Math.round(target.maxMoney * hackRatio * 100) / 100} from ${target.name} every 4 seconds after a ${hackDelay / 1000} second delay`)
-
-    for (let i = 0; i < targetBatches; i++) {
-        let batchHackDelay = hackDelay + batchDelay * i
-        let batchFirstWeakDelay = firstWeakenDelay + batchDelay * i
-        let batchGrowDelay = growDelay + batchDelay * i
-        let batchSecondWeakDelay = secondWeakenDelay + batchDelay * i
-        let batchHackThreads = hackThreads
-        let batchFirstWeakenThreads = weakenThreadsAfterHack
-        let batchGrowThreads = growThreadsAfterHack
-        let batchSecondWeakenThreads = weakenThreadsAfterGrow
-
-        while (batchHackThreads > 0) {
-            for (let host of hosts) {
-                let threads = Math.min(Math.floor(host.availableRAM / 1.7), batchHackThreads)
-                if (threads <= 0) {
-                    continue
-                }
-                ns.exec("hack-target.js", host.name, threads, target.name, batchHackDelay, i)
-                batchHackThreads -= threads
-                if (batchHackThreads <= 0) {
-                    break
-                }
+    ns.print(`Hack: ${hackThreads} threads after ${Math.round(hackDelay / 10) / 100} seconds`)
+    ns.print(`First Weaken: ${weakenThreadsAfterHack} threads after ${Math.round(firstWeakenDelay / 10) / 100} seconds`)
+    ns.print(`Grow: ${growThreadsAfterHack} threads after ${Math.round(growDelay / 10) / 100} seconds`)
+    ns.print(`Second Weaken: ${weakenThreadsAfterGrow} threads after ${Math.round(secondWeakenDelay / 10) / 100} seconds`)
+    while (weakenThreadsAfterHack > 0) {
+        for (let host of hosts) {
+            let threads = Math.min(Math.floor(host.availableRAM / 1.75), weakenThreadsAfterHack)
+            if (threads <= 0) {
+                continue
             }
-        }
-        while (batchFirstWeakenThreads > 0) {
-            for (let host of hosts) {
-                let threads = Math.min(Math.floor(host.availableRAM / 1.75), batchFirstWeakenThreads)
-                if (threads <= 0) {
-                    continue
-                }
-                ns.exec("weaken-target.js", host.name, threads, target.name, batchFirstWeakDelay, i)
-                batchFirstWeakenThreads -= threads
-                if (batchFirstWeakenThreads <= 0) {
-                    break
-                }
-            }
-        }
-        while (batchGrowThreads > 0) {
-            for (let host of hosts) {
-                let threads = Math.min(Math.floor(host.availableRAM / 1.75), batchGrowThreads)
-                if (threads <= 0) {
-                    continue
-                }
-                ns.exec("grow-target.js", host.name, threads, target.name, batchGrowDelay, i)
-                batchGrowThreads -= threads
-                if (batchGrowThreads <= 0) {
-                    break
-                }
-            }
-            // await ns.sleep(200)
-        }
-        while (batchSecondWeakenThreads > 0) {
-            for (let host of hosts) {
-                let threads = Math.min(Math.floor(host.availableRAM / 1.75), batchSecondWeakenThreads)
-                if (threads <= 0) {
-                    continue
-                }
-                ns.exec("weaken-target.js", host.name, threads, target.name, batchSecondWeakDelay, i)
-                batchSecondWeakenThreads -= threads
-                if (batchSecondWeakenThreads <= 0) {
-                    break
-                }
+            ns.exec("weaken-target.js", host.name, threads, target.name, firstWeakenDelay)
+            weakenThreadsAfterHack -= threads
+            if (weakenThreadsAfterHack <= 0) {
+                break
             }
         }
     }
-    
-    return secondWeakenDelay + target.weakenTime + (batchDelay * targetBatches)
+    while (hackThreads > 0) {
+        for (let host of hosts) {
+            let threads = Math.min(Math.floor(host.availableRAM / 1.7), hackThreads)
+            if (threads <= 0) {
+                continue
+            }
+            ns.exec("hack-target.js", host.name, threads, target.name, hackDelay)
+            hackThreads -= threads
+            if (hackThreads <= 0) {
+                break
+            }
+        }
+    }
+    while (growThreadsAfterHack > 0) {
+        for (let host of hosts) {
+            ns.print(`${growThreadsAfterHack} threads remaining`)
+            let threads = Math.min(Math.floor(host.availableRAM / 1.75), growThreadsAfterHack)
+            if (threads <= 0) {
+                continue
+            }
+            ns.exec("grow-target.js", host.name, threads, target.name, growDelay)
+            growThreadsAfterHack -= threads
+            if (growThreadsAfterHack <= 0) {
+                break
+            }
+        }
+        // await ns.sleep(200)
+    }
+    while (weakenThreadsAfterGrow > 0) {
+        for (let host of hosts) {
+            let threads = Math.min(Math.floor(host.availableRAM / 1.75), weakenThreadsAfterGrow)
+            if (threads <= 0) {
+                continue
+            }
+            ns.exec("weaken-target.js", host.name, threads, target.name, secondWeakenDelay)
+            weakenThreadsAfterGrow -= threads
+            if (weakenThreadsAfterGrow <= 0) {
+                break
+            }
+        }
+    }
+    return secondWeakenDelay + target.weakenTime
 }

@@ -102,7 +102,6 @@ export class Server {
         return this.ns.getWeakenTime(this.name)
     }
 
-
     //Methods
     root(): void {
         const cracks: any[] = [this.ns.brutessh, this.ns.ftpcrack, this.ns.relaysmtp, this.ns.httpworm, this.ns.sqlinject]
@@ -111,4 +110,15 @@ export class Server {
         }
         this.ns.nuke(this.name)
     }
+}
+
+export function getMults(ns: NS) {
+    let mults = ns.getPlayer().mults
+    let bnMults = undefined
+    // Uncomment line after getting SF-5
+    // bnMults = ns.getBitNodeMultipliers()
+    if (bnMults !== undefined) {
+        // TODO: Implement BN mults
+    }
+    return mults
 }
