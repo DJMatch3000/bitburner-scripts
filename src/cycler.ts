@@ -2,16 +2,6 @@ import { NS } from "@ns";
 import { getAllServers, Server } from "utils";
 
 export async function main(ns: NS): Promise<void> {
-    // single cycle
-    // get threads to fully weaken and run
-    // get threads to fully grow and run
-    // repeat above until prepped
-
-    // get threads to hack 95% of money
-    // get threads to weaken after hack
-    // get threads to grow after hack
-    // get threads to weaken after grow
-    // run all of the above
     ns.disableLog('ALL')
     ns.enableLog('sleep')
     let loop = true
@@ -87,11 +77,8 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / scriptMem)), 0)
     let growSleepTime = target.weakenTime - target.growTime - 400
     let weakenSleepTime = target.growTime - target.weakenTime
-    ns.print('Beginning grow prep')
-    if (growThreadsNeeded <= 0) {
-        ns.print('No grow prep needed')
-        
-    }
+    ns.print(`${growThreadsNeeded + weakenNeededAfterGrow} of ${totalThreadsAvailable} threads needed for prep`)
+    if (growThreadsNeeded <= 0) {}
     else if (totalThreadsAvailable >= growThreadsNeeded + weakenThreadsNeededAfterGrow) {
         ns.print('Running all at once')
         ns.print(`Using ${growThreadsNeeded + weakenThreadsNeededAfterGrow} of ${totalThreadsAvailable} threads to grow ${target.name}`)
@@ -184,11 +171,13 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     let secondWeakenDelay = growDelay + target.growTime - target.weakenTime + 1000
 
     let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
+    ns.print(`Using ${hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow} of ${totalThreadsAvailable} threads to schedule batch`)
+    await ns.sleep(5000)
     while (hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow > totalThreadsAvailable) {
         hackRatio -= 0.01
         hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
         weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
-        growThreadsAfterHack *= 0.9
+        growThreadsAfterHack = Math.ceil(growThreadsAfterHack * 0.9)
         weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
     }
     
