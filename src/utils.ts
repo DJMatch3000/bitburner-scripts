@@ -122,3 +122,7 @@ export function getMults(ns: NS) {
     }
     return mults
 }
+
+export function numberWithCommas(x: number) {
+    return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+}
