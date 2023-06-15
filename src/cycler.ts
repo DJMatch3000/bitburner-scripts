@@ -157,11 +157,13 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Finished prepping ${target.name}`)
 }
 
+// TODO: Change scheduling to use time instead of sleep
 async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Scheduling batch on ${target.name}`)
     let targetBatches = 1000
     let scheduling = true
     let hackRatio = 0.97
+    let scheduleBuffer = 2000
     let hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 1.25)
     let growThreadsAfterHack = 3000 // Manually calculated, can be updated with Formulas api by uncommenting below code
@@ -208,11 +210,11 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
         return 0
     }
 
-    let firstWeakenDelay = 0
-    let hackDelay = target.weakenTime - target.hackTime - 1000 + firstWeakenDelay
-    let growDelay = firstWeakenDelay + target.weakenTime - target.growTime + 1000
-    let secondWeakenDelay = growDelay + target.growTime - target.weakenTime + 1000
-    let batchDelay = secondWeakenDelay + 1000
+    let firstWeakenDelay = scheduleBuffer
+    let hackDelay = target.weakenTime - target.hackTime - scheduleBuffer + firstWeakenDelay
+    let growDelay = firstWeakenDelay + target.weakenTime - target.growTime + scheduleBuffer
+    let secondWeakenDelay = growDelay + target.growTime - target.weakenTime + scheduleBuffer
+    let batchDelay = secondWeakenDelay + scheduleBuffer
 
     ns.print(`Using ${(hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow) * targetBatches} of ${hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)} threads to run ${targetBatches} batches`)
     ns.print(`Stealing $${numberWithCommas(Math.round(target.maxMoney * hackRatio))} from ${target.name} every 4 seconds after a ${(hackDelay + target.hackTime) / 1000} second delay`)
@@ -282,5 +284,5 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
         }
     }
 
-    return secondWeakenDelay + target.weakenTime + (batchDelay * targetBatches) + 1000
+    return secondWeakenDelay + target.weakenTime + (batchDelay * targetBatches) + scheduleBuffer
 }
