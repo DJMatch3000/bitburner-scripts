@@ -62,7 +62,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
             if (threads <= 0) {
                 continue
             }
-            ns.exec("weaken-target.js", host.name, threads, target.name)
+            ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name)
             weakenThreadsNeeded -= threads
         }
         if (weakenThreadsNeeded > 0) {
@@ -86,7 +86,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("grow-target.js", host.name, threads, target.name, growSleepTime)
+                ns.exec("grow-target.js", host.name, {threads: threads, temporary: true}, target.name, growSleepTime)
                 growThreadsNeeded -= threads
                 if (growThreadsNeeded <= 0) {
                     break
@@ -103,7 +103,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("weaken-target.js", host.name, threads, target.name, weakenSleepTime)
+                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, weakenSleepTime)
                 weakenThreadsNeededAfterGrow -= threads
                 if (weakenThreadsNeededAfterGrow <= 0) {
                     break
@@ -131,7 +131,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                     if (threads <= 0) {
                         continue
                     }
-                    ns.exec("grow-target.js", host.name, threads, target.name, growSleepTime)
+                    ns.exec("grow-target.js", host.name, {threads: threads, temporary: true}, target.name, growSleepTime)
                     availableGrowThreads -= threads
                     if (availableGrowThreads <= 0) {
                         break
@@ -144,7 +144,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                     if (threads <= 0) {
                         continue
                     }
-                    ns.exec("weaken-target.js", host.name, threads, target.name, weakenSleepTime)
+                    ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, weakenSleepTime)
                     availableWeakenThreads -= threads
                     if (availableWeakenThreads <= 0) {
                         break
@@ -161,7 +161,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
 // TODO: Change scheduling to use time instead of sleep
 async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     ns.print(`Scheduling batch on ${target.name}`)
-    let targetBatches = 1000
+    let targetBatches = 100
     let scheduling = true
     let hackRatio = 0.75
     let scheduleBuffer = 2000
@@ -177,7 +177,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
 
     while (scheduling && hackRatio > 0.05) {
-        targetBatches = 1000
+        targetBatches = 100
         let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
 
         hackThreads = Math.max(Math.floor(hackRatio / ns.hackAnalyze(target.name)), 1)
@@ -234,7 +234,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("hack-target.js", host.name, threads, target.name, batchHackDelay, i)
+                ns.exec("hack-target.js", host.name, {threads: threads, temporary: true}, target.name, batchHackDelay, i)
                 batchHackThreads -= threads
                 if (batchHackThreads <= 0) {
                     break
@@ -247,7 +247,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("weaken-target.js", host.name, threads, target.name, batchFirstWeakDelay, i)
+                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchFirstWeakDelay, i)
                 batchFirstWeakenThreads -= threads
                 if (batchFirstWeakenThreads <= 0) {
                     break
@@ -260,7 +260,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("grow-target.js", host.name, threads, target.name, batchGrowDelay, i)
+                ns.exec("grow-target.js", host.name, {threads: threads, temporary: true}, target.name, batchGrowDelay, i)
                 batchGrowThreads -= threads
                 if (batchGrowThreads <= 0) {
                     break
@@ -274,7 +274,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("weaken-target.js", host.name, threads, target.name, batchSecondWeakDelay, i)
+                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchSecondWeakDelay, i)
                 batchSecondWeakenThreads -= threads
                 if (batchSecondWeakenThreads <= 0) {
                     break

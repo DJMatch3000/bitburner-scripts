@@ -54,6 +54,9 @@ export class Server {
     }
 
     get maxRAM() {
+        if (this.name === "home") {
+            return Math.floor(this.ns.getServerMaxRam(this.name) * 0.8)
+        }
         return this.ns.getServerMaxRam(this.name)
     }
 
@@ -65,7 +68,7 @@ export class Server {
         if (this.name === "home") {
             return Math.floor((this.maxRAM - this.usedRAM) * 0.8 * 100) / 100
         }
-        return this.maxRAM - this.usedRAM
+        return Math.max(this.maxRAM - this.usedRAM, 0)
     }
 
 
