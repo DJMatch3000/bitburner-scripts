@@ -38,7 +38,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     while (ns.weakenAnalyze(weakenThreadsNeeded) < weakenNeeded) {
         weakenThreadsNeeded++
     }
-    let growMultNeeded = target.maxMoney / target.money
+    let growMultNeeded = target.maxMoney / Math.max(target.money, 1)
     let growThreadsNeeded = Math.ceil(ns.growthAnalyze(target.name, growMultNeeded))
     let weakenNeededAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsNeeded))
     let weakenThreadsNeededAfterGrow = 0
@@ -137,6 +137,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                         break
                     }
                 }
+                await ns.sleep(50)
             }
             while (availableWeakenThreads > 0) {
                 for (let host of hosts) {
@@ -150,6 +151,7 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
                         break
                     }
                 }
+                await ns.sleep(50)
             }
             await ns.sleep(Math.max(target.growTime, target.weakenTime) + 400)
         }
