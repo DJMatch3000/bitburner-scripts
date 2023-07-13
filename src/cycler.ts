@@ -178,7 +178,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     }
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
 
-    while (scheduling && hackRatio > 0.05) {
+    while (scheduling && hackRatio > 0.01) {
         targetBatches = 100
         let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
 
@@ -195,7 +195,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
         weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
         let totalThreadsNeeded = hackThreads + weakenThreadsAfterHack + growThreadsAfterHack + weakenThreadsAfterGrow
         targetBatches = Math.min(targetBatches, Math.floor(totalThreadsAvailable / totalThreadsNeeded))
-        if (targetBatches < 5) {
+        if (targetBatches < 1) {
             hackRatio -= 0.01
         }
         else {
