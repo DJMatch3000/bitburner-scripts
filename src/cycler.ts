@@ -13,11 +13,41 @@ export async function main(ns: NS): Promise<void> {
         // targets = [new Server(ns, "iron-gym")]
         hosts.sort((a, b) => b.availableRAM - a.availableRAM)
         hosts.map((s) => { if (!ns.fileExists('weaken-target.js', s.name)) ns.scp(["hack-target.js", "grow-target.js", "weaken-target.js"], s.name, "home") })
-        targets.sort((a, b) => b.maxMoney - a.maxMoney)
 
-        await prepServer(ns, targets[0], hosts)
-        // loop = false
-        let batchTime = await scheduleBatch(ns, targets[0], hosts)
+        let totalRAM = hosts.reduce((ram, h) => (ram + h.maxRAM), 0)
+        // targets.sort((b, a) => b.maxMoney - a.maxMoney)
+        targets.sort((a, b) => {
+            // +maxMoney, -minSec, +growrate, minSec means less as hackLevel grows, growrate means less as RAM grows
+            // (money ^ x) * (growth ^ RAM/(RAM + y)) * (minSec ^ (hack/(hack + z))
+            let moneyCoeff = (x: Server) => Math.pow(x.maxMoney * 0.001, (totalRAM / (totalRAM + 1000)))
+            let growCoeff = (x: Server) => (Math.pow(Math.min(ns.getServerGrowth(x.name), 100), 1.5))
+            let secCoeff = (x: Server) => (Math.pow(x.minSecurity, (ns.getHackingLevel() / (ns.getHackingLevel() + 1000))))
+            let scoreA = (moneyCoeff(a) * growCoeff(a) / secCoeff(a))
+            let scoreB = (moneyCoeff(b) * growCoeff(b) / secCoeff(b))
+            
+            return scoreA - scoreB
+        })
+
+        // ns.tprint(targets.map((s) => s.name))
+
+        let batchTime = 0
+        while (batchTime <= 0 && targets.length > 0) {
+            let target = targets.pop()
+            let totalAvailableRAM = hosts.reduce((ram, h) => (ram + h.availableRAM), 0)
+            await prepServer(ns, target, hosts)
+            // let preppedTargets = [target]
+            // while (totalRAM / totalAvailableRAM > 4) {
+            //     preppedTargets.push(targets.pop())
+            //     await prepServer(ns, target, hosts)
+            // }
+            batchTime = await scheduleBatch(ns, target, hosts)
+            totalAvailableRAM = hosts.reduce((ram, h) => (ram + h.availableRAM), 0)
+            while (totalRAM / (totalRAM - totalAvailableRAM) > 4) {
+                target = targets.pop()
+                await prepServer(ns, target, hosts)
+                batchTime = Math.max(batchTime, await scheduleBatch(ns, target, hosts))
+            }
+        }
         await ns.sleep(batchTime + 1000)
     }
 
@@ -29,10 +59,17 @@ export async function main(ns: NS): Promise<void> {
  * @param target server to prep
  * @param hosts host servers
  */
-async function prepServer(ns: NS, target: Server, hosts: Server[]) {
+async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
+    if (target === undefined) {
+        ns.tprint('ERROR: No valid targets')
+        ns.exit()
+    }
+    let sleepTime = 0
+    let canBatch = true
     ns.print("Prepping " + target.name)
     if (!target.isRooted) target.root()
     let scriptMem = ns.getScriptRam('weaken-target.js')
+
     let weakenNeeded = target.security - target.minSecurity
     let weakenThreadsNeeded = 0
     while (ns.weakenAnalyze(weakenThreadsNeeded) < weakenNeeded) {
@@ -120,6 +157,15 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
     else {
         ns.print('Running in batches')
         while (growThreadsNeeded > 0 && weakenThreadsNeededAfterGrow > 0) {
+            growMultNeeded = target.maxMoney / Math.max(target.money, 1)
+            growThreadsNeeded = Math.ceil(ns.growthAnalyze(target.name, growMultNeeded))
+            weakenNeededAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsNeeded))
+            weakenThreadsNeededAfterGrow = 0
+            while (ns.weakenAnalyze(weakenThreadsNeededAfterGrow) < weakenNeededAfterGrow) {
+                weakenThreadsNeededAfterGrow++
+            }
+
+            totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / scriptMem)), 0)
             let availableGrowThreads = Math.min(Math.floor(growThreadsNeeded * totalThreadsAvailable / (growThreadsNeeded + weakenThreadsNeededAfterGrow)), growThreadsNeeded)
             let availableWeakenThreads = Math.min(totalThreadsAvailable - availableGrowThreads, weakenThreadsNeededAfterGrow)
             ns.print(`Running ${availableGrowThreads + availableWeakenThreads} of ${growThreadsNeeded + weakenThreadsNeededAfterGrow} threads`)
@@ -161,15 +207,19 @@ async function prepServer(ns: NS, target: Server, hosts: Server[]) {
 }
 
 // TODO: Change scheduling to use time instead of sleep
-async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
+async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]) {
+    if (target === undefined) {
+        return 0
+    }
     ns.print(`Scheduling batch on ${target.name}`)
-    let targetBatches = 100
+    let maxBatches = 50
+    let targetBatches = maxBatches
     let scheduling = true
     let hackRatio = 0.75
     let scheduleBuffer = 2000
     let hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 3)
-    let growThreadsAfterHack = 3000 // Manually calculated, can be updated with Formulas api by uncommenting below code
+    let growThreadsAfterHack = 3000
     let tempTarget
     if (ns.fileExists("Formulas.exe")) {
         tempTarget = ns.getServer(target.name)
@@ -179,7 +229,7 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
     let weakenThreadsAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsAfterHack) / ns.weakenAnalyze(1) * 1.25)
 
     while (scheduling && hackRatio > 0.01) {
-        targetBatches = 100
+        targetBatches = maxBatches
         let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / 1.75)), 0)
 
         hackThreads = Math.max(Math.floor(hackRatio / ns.hackAnalyze(target.name)), 1)
@@ -203,10 +253,10 @@ async function scheduleBatch(ns: NS, target: Server, hosts: Server[]) {
         }
     }
 
-    ns.print(`Hack ratio: ${hackRatio}`)
+    ns.print(`Hack ratio: ${hackRatio.toFixed(2)}`)
     ns.print(`Batches: ${targetBatches}`)
 
-    if (hackRatio < 0.05) {
+    if (hackRatio < 0.01) {
         ns.print("ERROR: Failed to schedule even a single batch")
         return 0
     }

@@ -1,6 +1,6 @@
 import { NS } from "@ns";
 
-function recursiveScan(ns: NS, parent: string, server: string, target: string, route: string[]) {
+export function recursiveScan(ns: NS, parent: string, server: string, target: string, route: string[]) {
     const children = ns.scan(server);
     for (let child of children) {
         if (parent == child) {
