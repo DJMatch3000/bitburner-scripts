@@ -43,6 +43,7 @@ export async function crackTarget(ns: NS, target: string) {
 
     if (hacksApplied >= portsNeeded) {
         goToServer(ns, target)
+        ns.nuke(target)
         await ns.singularity.installBackdoor()
         ns.singularity.connect("home")
     }
