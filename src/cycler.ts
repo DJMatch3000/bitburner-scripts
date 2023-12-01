@@ -3,6 +3,10 @@ import { getAllServers, Server, numberWithCommas } from "utils";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL')
+    await cycler(ns)
+}
+
+export async function cycler(ns: NS) {
     let loop = true
     while (loop) {
         let servers = getAllServers(ns)
@@ -15,7 +19,6 @@ export async function main(ns: NS): Promise<void> {
         hosts.map((s) => { if (!ns.fileExists('weaken-target.js', s.name)) ns.scp(["hack-target.js", "grow-target.js", "weaken-target.js"], s.name, "home") })
 
         let totalRAM = hosts.reduce((ram, h) => (ram + h.maxRAM), 0)
-        // targets.sort((b, a) => b.maxMoney - a.maxMoney)
         targets.sort((a, b) => {
             // +maxMoney, -minSec, +growrate, minSec means less as hackLevel grows, growrate means less as RAM grows
             // (money ^ x) * (growth ^ RAM/(RAM + y)) * (minSec ^ (hack/(hack + z))
@@ -33,24 +36,14 @@ export async function main(ns: NS): Promise<void> {
         let batchTime = 0
         while (batchTime <= 0 && targets.length > 0) {
             let target = targets.pop()
-            let totalAvailableRAM = hosts.reduce((ram, h) => (ram + h.availableRAM), 0)
-            await prepServer(ns, target, hosts)
-            // let preppedTargets = [target]
-            // while (totalRAM / totalAvailableRAM > 4) {
-            //     preppedTargets.push(targets.pop())
-            //     await prepServer(ns, target, hosts)
-            // }
-            batchTime = await scheduleBatch(ns, target, hosts)
-            totalAvailableRAM = hosts.reduce((ram, h) => (ram + h.availableRAM), 0)
-            while (totalRAM / (totalRAM - totalAvailableRAM) > 4) {
-                target = targets.pop()
-                await prepServer(ns, target, hosts)
-                batchTime = Math.max(batchTime, await scheduleBatch(ns, target, hosts))
+            if (target == undefined) {
+                break
             }
+            await prepServer(ns, target, hosts)
+            batchTime = await scheduleBatch(ns, target, hosts)
         }
-        await ns.sleep(batchTime + 1000)
+        await ns.asleep(batchTime + 1000)
     }
-
 }
 
 /**
@@ -64,8 +57,6 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
         ns.tprint('ERROR: No valid targets')
         ns.exit()
     }
-    let sleepTime = 0
-    let canBatch = true
     ns.print("Prepping " + target.name)
     if (!target.isRooted) target.root()
     let scriptMem = ns.getScriptRam('weaken-target.js')
@@ -76,12 +67,18 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
         weakenThreadsNeeded++
     }
     let growMultNeeded = target.maxMoney / Math.max(target.money, 1)
-    let growThreadsNeeded = Math.ceil(ns.growthAnalyze(target.name, growMultNeeded))
-    let weakenNeededAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsNeeded))
+    let growThreadsNeeded = 0
+    let weakenNeededAfterGrow = 0
     let weakenThreadsNeededAfterGrow = 0
-    while (ns.weakenAnalyze(weakenThreadsNeededAfterGrow) < weakenNeededAfterGrow) {
-        weakenThreadsNeededAfterGrow++
+    if (growMultNeeded > 0) {
+        growThreadsNeeded = Math.ceil(ns.growthAnalyze(target.name, growMultNeeded))
+        weakenNeededAfterGrow = Math.ceil(ns.growthAnalyzeSecurity(growThreadsNeeded))
+        while (ns.weakenAnalyze(weakenThreadsNeededAfterGrow) < weakenNeededAfterGrow) {
+            weakenThreadsNeededAfterGrow++
+        }
     }
+    
+    
 
     ns.print(`${target.name} needs ${weakenThreadsNeeded} threads to fully weaken`)
     ns.print(`${target.name} needs ${growThreadsNeeded} threads to fully grow`)
@@ -103,16 +100,16 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
             weakenThreadsNeeded -= threads
         }
         if (weakenThreadsNeeded > 0) {
-            await ns.sleep(target.weakenTime + 400)
+            await ns.asleep(target.weakenTime + 400)
         }
-        await ns.sleep(200)
+        await ns.asleep(200)
     }
-    if (shouldSleep) await ns.sleep(400)
+    if (shouldSleep) await ns.asleep(400)
 
     // Grow the target to maximum money
     let totalThreadsAvailable = hosts.reduce((acc, host) => (acc + Math.floor(host.availableRAM / scriptMem)), 0)
-    let growSleepTime = target.weakenTime - target.growTime - 400
-    let weakenSleepTime = target.growTime - target.weakenTime
+    let growSleepTime = Date.now() + target.weakenTime - target.growTime - 400
+    let weakenSleepTime = Date.now() + target.growTime - target.weakenTime
     if (growThreadsNeeded <= 0) { }
     else if (totalThreadsAvailable >= growThreadsNeeded + weakenThreadsNeededAfterGrow) {
         ns.print('Running all at once')
@@ -151,8 +148,8 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
                 await ns.sleep(200)
             }
         }
-        ns.print(`Waiting ${(target.weakenTime / 1000).toFixed(2)} seconds`)
-        await ns.sleep(Math.max(target.growTime, target.weakenTime) + 400)
+        ns.print(`Waiting ${((target.weakenTime) / 1000).toFixed(2)} seconds`)
+        await ns.asleep(Math.max(target.growTime, target.weakenTime) + 400)
     }
     else {
         ns.print('Running in batches')
@@ -183,7 +180,7 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
                         break
                     }
                 }
-                await ns.sleep(50)
+                await ns.asleep(50)
             }
             while (availableWeakenThreads > 0) {
                 for (let host of hosts) {
@@ -197,9 +194,9 @@ async function prepServer(ns: NS, target: Server | undefined, hosts: Server[]) {
                         break
                     }
                 }
-                await ns.sleep(50)
+                await ns.asleep(50)
             }
-            await ns.sleep(Math.max(target.growTime, target.weakenTime) + 400)
+            await ns.asleep(Math.max(target.growTime, target.weakenTime) + 400)
         }
 
     }
@@ -212,11 +209,11 @@ async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]
         return 0
     }
     ns.print(`Scheduling batch on ${target.name}`)
-    let maxBatches = 50
+    let maxBatches = 100
     let targetBatches = maxBatches
     let scheduling = true
     let hackRatio = 0.75
-    let scheduleBuffer = 2000
+    let scheduleBuffer = 500
     let hackThreads = Math.floor(hackRatio / ns.hackAnalyze(target.name))
     let weakenThreadsAfterHack = Math.ceil(ns.hackAnalyzeSecurity(hackThreads, target.name) / ns.weakenAnalyze(1) * 3)
     let growThreadsAfterHack = 3000
@@ -280,13 +277,15 @@ async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]
         let batchGrowThreads = growThreadsAfterHack
         let batchSecondWeakenThreads = weakenThreadsAfterGrow
 
+        let startTime = Date.now()
+
         while (batchHackThreads > 0) {
             for (let host of hosts) {
                 let threads = Math.min(Math.floor(host.availableRAM / 1.7), batchHackThreads)
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("hack-target.js", host.name, {threads: threads, temporary: true}, target.name, batchHackDelay, i)
+                ns.exec("hack-target.js", host.name, {threads: threads, temporary: true}, target.name, batchHackDelay + startTime, i)
                 batchHackThreads -= threads
                 if (batchHackThreads <= 0) {
                     break
@@ -299,7 +298,7 @@ async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchFirstWeakDelay, i)
+                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchFirstWeakDelay + startTime, i)
                 batchFirstWeakenThreads -= threads
                 if (batchFirstWeakenThreads <= 0) {
                     break
@@ -312,13 +311,12 @@ async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("grow-target.js", host.name, {threads: threads, temporary: true}, target.name, batchGrowDelay, i)
+                ns.exec("grow-target.js", host.name, {threads: threads, temporary: true}, target.name, batchGrowDelay + startTime, i)
                 batchGrowThreads -= threads
                 if (batchGrowThreads <= 0) {
                     break
                 }
             }
-            // await ns.sleep(200)
         }
         while (batchSecondWeakenThreads > 0) {
             for (let host of hosts) {
@@ -326,7 +324,7 @@ async function scheduleBatch(ns: NS, target: Server | undefined, hosts: Server[]
                 if (threads <= 0) {
                     continue
                 }
-                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchSecondWeakDelay, i)
+                ns.exec("weaken-target.js", host.name, {threads: threads, temporary: true}, target.name, batchSecondWeakDelay + startTime, i)
                 batchSecondWeakenThreads -= threads
                 if (batchSecondWeakenThreads <= 0) {
                     break
