@@ -3,6 +3,10 @@ import { numberWithCommas } from "utils";
 
 export async function main(ns: NS): Promise<void> {
     ns.disableLog('ALL')
+    await serverBuyer(ns)
+}
+
+export async function serverBuyer(ns: NS) {
     const HOSTNAME = "daemonhost-"
 
     for (let i = ns.getPurchasedServers().length; i < ns.getPurchasedServerLimit(); i++) {
@@ -14,4 +18,5 @@ export async function main(ns: NS): Promise<void> {
         ns.print("Purchasing server " + HOSTNAME + i.toString())
         ns.purchaseServer(HOSTNAME + i.toString(), serverRam)
     }
+    ns.writePort(2, "Done")
 }

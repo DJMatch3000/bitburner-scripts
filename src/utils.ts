@@ -74,7 +74,7 @@ export class Server {
 
     //Target-related properties
     get canHack() {
-        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name) && this.canRoot
+        return this.ns.getHackingLevel() >= this.ns.getServerRequiredHackingLevel(this.name) && this.canRoot && this.maxMoney > 0 && this.name !== "home"
     }
 
     get minSecurity() {
