@@ -13,13 +13,13 @@ export async function main(ns: NS): Promise<void> {
     may want to consider using import/export instead of separate processes to conserve RAM
     at the cost of a much larger daemon (likely impossible due to concurrent call restrictions)
     */
-    const SCRIPTS = [{name: 'cycler.js', port: 1}, {name: 'server-buyer.js', port: 2}, {name: 'programctl.js', port: 3}]
+    const SCRIPTS = [{name: 'cycler.js', port: 1}, {name: 'server-buyer.js', port: 2}, {name: 'programctl.js', port: 3}, {name: 'memoryctl.js', port: 4}]
 
     // let functions = [cycler, programBuyer, serverBuyer]
 
     while (true) { 
         for (let s of SCRIPTS) {
-            if (!ns.isRunning(s.name) && ns.readPort(s.port) !== "Done") {
+            if (!ns.isRunning(s.name) && ns.peek(s.port).toString() != "Done") {
                 ns.run(s.name)
             }
         }

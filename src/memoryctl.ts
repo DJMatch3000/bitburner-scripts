@@ -5,11 +5,13 @@ export async function main(ns: NS): Promise<void> {
 }
 
 async function memoryBuyer(ns: NS): Promise<void> {
-    while (true) {
+    while (ns.getServerMaxRam("home") < ns.getPurchasedServerMaxRam()) {
         let money = ns.getServerMoneyAvailable("home")
         if (money >= ns.singularity.getUpgradeHomeRamCost()) {
             ns.singularity.upgradeHomeRam()
         }
         await ns.asleep(200)
     }
+    ns.clearPort(4)
+    ns.writePort(4, "Done")
 }

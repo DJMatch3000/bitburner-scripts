@@ -10,6 +10,6 @@ export async function main(ns: NS): Promise<void> {
     if (ns.args.length > 1) {
         await ns.sleep(Number.parseInt(ns.args[1].toString()) - Date.now())
     }
-    await ns.grow(target)
+    await ns.grow(target, {})
 }
  
